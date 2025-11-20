@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>แผนที่อำเภอ + สาขา</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    #map {
+      width: 100%;
+      height: 100vh;
+    }
+
+    /* สไตล์ label ของชื่ออำเภอ */
+    .district-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #333;
+      text-shadow: 0 0 3px #ffffff, 0 0 5px #ffffff;
+      white-space: nowrap;
+    }
+
+    .district-label.focus {
+      color: #b71c1c; /* โฟกัสแดง */
+    }
+
+    .district-label.normal {
+      color: #795548; /* ปกติ น้ำตาลเข้มอ่านง่ายบนพื้นเหลือง */
+    }
+
+    /* Tooltip สำหรับ marker สาขา */
+    .branch-tooltip {
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* กล่อง legend */
+    .legend {
+      background: white;
+      padding: 8px 12px;
+      border-radius: 4px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .legend-color {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      border: 1px solid #555;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <!-- Leaflet JS -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+
+  <script>
+    // -----------------------------
+    // 1) สร้างแผนที่พื้นฐาน
+    // -----------------------------
+    const map = L.map('map').setView([17.4, 103.8], 9); // center คร่าวๆ แถบสกลนคร–นครพนม–บึงกาฬ–อุดร
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // LayerGroup สำหรับ label ชื่ออำเภอ
+    const districtLabelsLayer = L.layerGroup().addTo(map);
+
+    // -----------------------------
+    // 2) ข้อมูลสาขา (PIN marker)
+    // -----------------------------
+    // TODO: แก้ให้เป็นพิกัดสาขาจริงของคุณ
+    const branches = [
+      { name: 'สาขาตัวอย่าง 1', lat: 17.25, lng: 103.75 },
+      { name: 'สาขาตัวอย่าง 2', lat: 17.45, lng: 104.00 }
+      // เพิ่มได้เรื่อยๆ
+    ];
+
+    const branchMarkers = L.layerGroup();
+    branches.forEach(b => {
+      const marker = L.marker([b.lat, b.lng]);
+      marker.bindTooltip(b.name, {
+        direction: 'top',
+        permanent: false,
+        className: 'branch-tooltip'
+      });
+      branchMarkers.addLayer(marker);
+    });
+    branchMarkers.addTo(map);
+
+    // -----------------------------
+    // 3) ข้อมูล GeoJSON อำเภอ
+    // -----------------------------
+
+    // ❗ วิธีใช้งาน GeoJSON จากข้อมูลที่คุณมี (ที่เป็น string มี "" ซ้อน)
+    // แนะนำให้คุณแปลงบนคอม: เปิดไฟล์ แล้ว replace "" => " และเอา quote รอบนอกออก
+    // ให้เหลือเป็น Feature จริงแบบนี้ แล้วค่อยคัดลอกมาใส่ใน features ด้านล่าง
+
+    // ตัวอย่างอำเภอปกติ: พรรณานิคม (ยกมาให้ดูโครงสร้างเฉยๆ)
+    const amphoePhannaNikhom = {
+      "type": "Feature",
+      "properties": {
+        "amp_code": "4704",
+        "amp_th": "พรรณานิคม",
+        "amp_en": "Phanna Nikhom",
+        "pro_code": "47",
+        "pro_th": "สกลนคร",
+        "pro_en": "Sakon Nakhon",
+        "reg_nesdb": "Northeast",
+        "reg_royin": "Northeast",
+        "perimeter": 139.05360420173,
+        "area_sqkm": 744.31001102734001
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [103.986230687299951, 17.299444643405398],
+              [103.986520804747116, 17.299072469316894],
+              [103.993214521082436, 17.294835989482984],
+              [103.992702087212081, 17.288240409832305],
+              [103.979544239167893, 17.270943658903125],
+              [103.979135085766146, 17.253929692910919],
+              [103.967019502085577, 17.231357476374423],
+              [103.967229828702457, 17.211327137050546],
+              [103.951995152583237, 17.191444398157078],
+              [103.946960714793775, 17.186094935505331],
+              [103.932834837163782, 17.192761073086103],
+              [103.928892485244461, 17.187038438031351],
+              [103.928829482668235, 17.187048992921302],
+              [103.913695913431653, 17.169209604046483],
+              [103.88840073844473, 17.159563706993858],
+              [103.876422935795006, 17.147373083591273],
+              [103.869034666420788, 17.14706157099678],
+              [103.864154834329952, 17.155585627678143],
+              [103.859766489707027, 17.154913029370885],
+              [103.838942788863477, 17.168554433994423],
+              [103.814888421251894, 17.17113958151743],
+              [103.792509186105249, 17.184528328143273],
+              [103.766331732071208, 17.205014390082912],
+              [103.743179517998712, 17.213092783296609],
+              [103.71482315780051, 17.239062186401426],
+              [103.709356180828294, 17.253110442884875],
+              [103.723204279964904, 17.254236099290779],
+              [103.729376077635493, 17.259367141704157],
+              [103.747906386978087, 17.262100933715981],
+              [103.759267365584378, 17.25829040539745],
+              [103.774261076704647, 17.275622668725489],
+              [103.78128121305015, 17.296923698417594],
+              [103.780141737694493, 17.310079851322548],
+              [103.766772753761032, 17.33129084761589],
+              [103.764952959275618, 17.344588478517725],
+              [103.771934668940702, 17.356482705001639],
+              [103.787216907150949, 17.364626209837027],
+              [103.805894747234134, 17.387893515565761],
+              [103.81562892226242, 17.396505691515895],
+              [103.832294932526878, 17.3802622055487],
+              [103.85537278766725, 17.372993808405909],
+              [103.852170953823688, 17.380208494523711],
+              [103.856812295755148, 17.38611008328089],
+              [103.851146456754407, 17.387041221130279],
+              [103.850316536124524, 17.394621759799097],
+              [103.859293434954125, 17.41361614985809],
+              [103.850466980249365, 17.425202999321712],
+              [103.857313437033284, 17.440670091201252],
+              [103.85428224354888, 17.444664569498901],
+              [103.856745632059187, 17.464330198979717],
+              [103.876099849146357, 17.464787225591884],
+              [103.909098112414114, 17.464407348202062],
+              [103.923882777096011, 17.469618119100485],
+              [103.969549834322024, 17.467176185600724],
+              [103.976681770409868, 17.472165244217226],
+              [103.988134609406288, 17.472326974699374],
+              [104.001647972202534, 17.46388374979221],
+              [104.012738266307622, 17.471032027562472],
+              [104.033730825592571, 17.431420071792481],
+              [104.037598174665931, 17.420010709501113],
+              [104.058089408654695, 17.395949350796631],
+              [104.056993185045258, 17.390264770997774],
+              [104.062355405916321, 17.388704942738286],
+              [104.054697423510163, 17.371374674685356],
+              [104.039867546419458, 17.373483537762436],
+              [104.028913236041873, 17.37010985841631],
+              [104.023925145460453, 17.363684976534291],
+              [104.025891289510369, 17.359557056532747],
+              [104.032626163761876, 17.360726416136561],
+              [104.030627673063123, 17.345220294617398],
+              [104.037660311919936, 17.346127550230747],
+              [104.030147439407088, 17.332446559511517],
+              [104.034709653731568, 17.329117148552609],
+              [104.02394641652981, 17.328795684415471],
+              [104.02280532447962, 17.336686075611958],
+              [104.014975290566994, 17.340377867934031],
+              [104.003697875979285, 17.324870586872247],
+              [103.999706681180001, 17.333883306843848],
+              [103.995383957761604, 17.332087928288949],
+              [103.99018625516284, 17.321730271573607],
+              [103.993912575110201, 17.320156029248096],
+              [103.989892968247744, 17.318280780787585],
+              [103.982344475602829, 17.3099626890201],
+              [103.986230687299951, 17.299444643405398]
+            ]
+          ]
+        ]
+      }
+    };
+
+    // TODO: 1) อำเภอปกติทั้งหมด (ชุดที่ 3 ที่คุณส่งมา)
+    // ให้จัดรวมเป็น FeatureCollection แบบนี้
+    const normalDistrictsGeoJSON = {
+      "type": "FeatureCollection",
+      "features": [
+        amphoePhannaNikhom,
+        // ใส่ feature อำเภอปกติอื่นๆ ตามที่คุณมี (กุสุมาลย์, พังโคน, กุดบาก, ส่องดาว, บ้านม่วง, ฯลฯ)
+      ]
+    };
+
+    // TODO: 2) อำเภอ “โฟกัส” (สีแดง)
+    // ตัวอย่าง placeholder: ให้คุณแทนที่ด้วย Feature จริง
+    const focusDistrictsGeoJSON = {
+      "type": "FeatureCollection",
+      "features": [
+        // ใส่ Feature อำเภอที่คุณต้องการให้เป็น "โฟกัส"
+        // เช่น amphoeSomethingFocus
+      ]
+    };
+
+    // -----------------------------
+    // 4) ฟังก์ชันสร้าง layer + label
+    // -----------------------------
+    function createDistrictLayer(geojson, type) {
+      // type: 'focus' หรือ 'normal'
+      const fillColor = type === 'focus' ? '#EF5350' : '#FFEB3B'; // แดง / เหลือง
+      const color = type === 'focus' ? '#B71C1C' : '#F9A825';
+
+      const layer = L.geoJSON(geojson, {
+        style: function(feature) {
+          return {
+            color: color,
+            weight: 1.2,
+            fillColor: fillColor,
+            fillOpacity: 0.45
+          };
+        },
+        onEachFeature: function(feature, lyr) {
+          const p = feature.properties || {};
+
+          // popup เมื่อคลิกที่ polygon
+          lyr.bindPopup(
+            `<strong>${p.amp_th || ''}</strong><br>` +
+            `${p.amp_en || ''}<br>` +
+            `จังหวัด: ${p.pro_th || ''}<br>` +
+            (p.area_sqkm ? `พื้นที่: ${p.area_sqkm.toFixed ? p.area_sqkm.toFixed(2) : p.area_sqkm} ตร.กม.` : '')
+          );
+
+          // สร้าง label ชื่ออำเภอ
+          try {
+            const center = lyr.getBounds().getCenter();
+            const label = L.marker(center, {
+              interactive: false,
+              icon: L.divIcon({
+                className: `district-label ${type}`,
+                html: p.amp_th || '',
+                iconSize: [100, 20],
+                iconAnchor: [50, 10] // กลางตัวอักษร
+              })
+            });
+            districtLabelsLayer.addLayer(label);
+          } catch (e) {
+            // บางที polygon เล็ก/รูปทรงแปลก อาจ getBounds error ได้ ก็ข้ามไป
+            console.warn('Cannot place label for district', p.amp_th, e);
+          }
+        }
+      });
+
+      return layer;
+    }
+
+    const focusDistrictLayer = createDistrictLayer(focusDistrictsGeoJSON, 'focus').addTo(map);
+    const normalDistrictLayer = createDistrictLayer(normalDistrictsGeoJSON, 'normal').addTo(map);
+
+    // -----------------------------
+    // 5) Fit ให้เห็นทุกอำเภอ
+    // -----------------------------
+    const allDistrictsGroup = L.featureGroup([
+      focusDistrictLayer,
+      normalDistrictLayer
+    ]);
+    map.fitBounds(allDistrictsGroup.getBounds(), { padding: [20, 20] });
+
+    // -----------------------------
+    // 6) Layer Control & Legend
+    // -----------------------------
+    const overlayMaps = {
+      "อำเภอโฟกัส (แดง)": focusDistrictLayer,
+      "อำเภอปกติ (เหลือง)": normalDistrictLayer,
+      "สาขา": branchMarkers,
+      "ป้ายชื่ออำเภอ": districtLabelsLayer
+    };
+
+    L.control.layers(null, overlayMaps, { collapsed: true }).addTo(map);
+
+    // Legend มุมล่างขวา
+    const legend = L.control({ position: 'bottomright' });
+    legend.onAdd = function() {
+      const div = L.DomUtil.create('div', 'legend');
+      div.innerHTML = `
+        <div class="legend-item">
+          <span class="legend-color" style="background:#EF5350;"></span> อำเภอโฟกัส
+        </div>
+        <div class="legend-item">
+          <span class="legend-color" style="background:#FFEB3B;"></span> อำเภอปกติ
+        </div>
+        <div class="legend-item">
+          <span style="width:14px;height:14px;border-radius:50%;border:2px solid #2E7D32;display:inline-block;"></span> สาขา
+        </div>
+      `;
+      return div;
+    };
+    legend.addTo(map);
+  </script>
+</body>
+</html>
