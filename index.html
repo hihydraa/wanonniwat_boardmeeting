@@ -3231,6 +3231,15 @@ layer.eachLayer(function (layerItem) {
   }).addTo(map);
 });
 
+    // ========= ปักหมุดสาขาวานรนิวาส (พิกัดจริง) =========
+const wanonBranchLatLng = [17.629318337770822, 103.76765960931223];
+
+L.marker(wanonBranchLatLng, {
+  title: "สาขาวานรนิวาส"
+})
+  .addTo(map)
+  .bindPopup("<b>สาขาวานรนิวาส</b><br/>KC Petroleum<br/><small>พิกัดจริง</small>");
+
 
 
     
