@@ -22,6 +22,16 @@
     #map {
       height: 100vh;   /* สูงเต็มจอ */
       width: 100vw;    /* กว้างเต็มจอ */
+
+    .district-label div {
+      font-size: 14px;
+      font-weight: bold;
+      color: #000;
+      text-shadow: 1px 1px 2px #fff;
+      white-space: nowrap;
+    }
+
+      
     }
   </style>
 </head>
@@ -3164,6 +3174,24 @@
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
+
+  // ฟังก์ชันคำนวณ centroid แบบง่ายจาก MultiPolygon
+function getPolygonCenter(coordinates) {
+  let totalLat = 0, totalLng = 0, count = 0;
+
+  coordinates.forEach(poly => {
+    poly[0].forEach(point => {
+      totalLng += point[0];
+      totalLat += point[1];
+      count++;
+    });
+  });
+
+  return [totalLat / count, totalLng / count];
+}
+
+    
+
     // ========= 3) วาดทุกอำเภอ + Zoom ให้อัตโนมัติ =========
 
     const layer = L.geoJSON(amphoes, {
@@ -3184,6 +3212,28 @@
         );
       }
     }).addTo(map);
+
+  // ========= เพิ่ม Label ชื่ออำเภอ =========
+layer.eachLayer(function (layerItem) {
+  const feature = layerItem.feature;
+  const props = feature.properties;
+  
+  // คำนวณจุดกลาง Polygon
+  const center = getPolygonCenter(feature.geometry.coordinates);
+
+  // สร้าง label
+  L.marker(center, {
+    icon: L.divIcon({
+      className: 'district-label',
+      html: `<div>${props.amp_th}</div>`
+    }),
+    interactive: false
+  }).addTo(map);
+});
+
+
+
+    
    map.fitBounds(layer.getBounds());
   </script>
 </body>
