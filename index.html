@@ -3112,6 +3112,50 @@
       ]
     };
 
+    // ========= สีของอำเภอ =========
+    const FOCUS_DISTRICTS = [
+      "4711",
+      "4706",
+      "4712",
+      "4708",
+      "4716",
+      "4707",
+      "4709",
+      "3806",
+      "3807",
+      "4810",
+      "4808",
+      "4804",
+      "4111"
+    ];
+
+    const NORMAL_DISTRICTS = [
+      "4702",
+      "4705",
+      "4703",
+      "4713",
+      "3802",
+      "3803",
+      "3805",
+      "4809",
+      "4106",
+      "4123",
+      "4107",
+      "4120",
+      "4704",
+      "4710"
+    ];
+
+    const FOCUS_COLOR  = "#ff6600";  // สีอำเภอที่โฟกัส
+    const NORMAL_COLOR = "#cccccc";  // สีอำเภอทั่วไป
+    const OTHER_COLOR  = "#999999";  // สีสำรอง กรณีไม่อยู่ในทั้งสองกลุ่ม
+
+    function getDistrictColor(ampCode) {
+      if (FOCUS_DISTRICTS.includes(ampCode)) return FOCUS_COLOR;
+      if (NORMAL_DISTRICTS.includes(ampCode)) return NORMAL_COLOR;
+      return OTHER_COLOR;
+    }
+    
     // ========= 2) สร้างแผนที่ =========
     const map = L.map('map');
 
@@ -3121,13 +3165,17 @@
     }).addTo(map);
 
     // ========= 3) วาดทุกอำเภอ + Zoom ให้อัตโนมัติ =========
+
     const layer = L.geoJSON(amphoes, {
-      style: feature => ({
-        color: '#ff6600',
-        weight: 2,
-        fillColor: '#ffcc66',
-        fillOpacity: 0.4
-      }),
+      style: feature => {
+        const code = feature.properties.amp_code;  // ดึงรหัสอำเภอ
+        return {
+          color: "#333333",                 // เส้นขอบ
+          weight: 1.5,
+          fillColor: getDistrictColor(code),// สีตามกลุ่มที่กำหนด
+          fillOpacity: 0.6
+        };
+      },
       onEachFeature: (feature, layer) => {
         const p = feature.properties || {};
         layer.bindPopup(
@@ -3136,8 +3184,7 @@
         );
       }
     }).addTo(map);
-
-    map.fitBounds(layer.getBounds());
+   map.fitBounds(layer.getBounds());
   </script>
 </body>
 </html>
